@@ -41,9 +41,6 @@ onMounted(() => {
         const position = this.axialToPixel(q, r, hexRadius, center)
         this.createHex(position.x, position.y, hexRadius)
       })
-
-      // 3. Отрисовка границ
-      this.drawHexagonBorder(hexagons, mapRadius, hexRadius, center)
     }
 
     // Генерация координат в осевой системе
@@ -61,34 +58,55 @@ onMounted(() => {
     }
 
     // Преобразование координат
+    // В классе MainScene:
     private axialToPixel(
       q: number,
       r: number,
       hexRadius: number,
       center: { x: number; y: number },
     ): { x: number; y: number } {
-      const x = hexRadius * Math.sqrt(3) * (q + r / 2) + center.x
-      const y = hexRadius * (3 / 2) * r + center.y
+      // Реальные пропорции из SVG (86x100)
+      const aspectRatio = 86 / 100 // 0.86
+      const hexWidth = hexRadius * 2 * aspectRatio // Ширина гекса
+      const hexHeight = hexRadius * 2 // Высота гекса
+
+      // Правильное расстояние между центрами
+      const horizontalSpacing = hexWidth // Эмпирическая корректировка
+      const verticalSpacing = hexHeight * 0.75
+
+      const x = horizontalSpacing * (q + r * 0.5) + center.x
+      const y = verticalSpacing * r + center.y
       return { x, y }
     }
 
-    // Создание одного гекса
     private createHex(x: number, y: number, hexRadius: number): void {
+      // Размеры согласно SVG
+      const displayWidth = hexRadius * 2 * (86 / 100)
+      const displayHeight = hexRadius * 2
+
       const hex = this.add
         .image(x, y, 'hex')
-        .setDisplaySize(hexRadius * 2, hexRadius * 2)
+        .setDisplaySize(displayWidth, displayHeight)
         .setDataEnabled()
 
-      // Настройка физики
+      // Физическое тело с коррекцией
       this.physics.add.existing(hex, true)
       const body = hex.body as Phaser.Physics.Arcade.Body
-      body.setCircle(hexRadius * 0.85)
+      body.setCircle(displayWidth / 2)
 
-      // Настройка интерактивности
-      hex.setInteractive({ pixelPerfect: true })
+      // const bodyRadius = displayWidth / 2
+      // body.setCircle(
+      //   bodyRadius,
+      //   (displayWidth - displayHeight) / 2, // Центрирование по X не работает
+      //   0, // Центрирование по Y не работает
+      // )
+
+      hex.setInteractive({
+        pixelPerfect: true,
+        useHandCursor: true,
+      })
       hex.data.set('value', 1)
 
-      // Обработчик клика
       hex.on('pointerdown', () => {
         this.handleHexClick(hex)
       })
@@ -101,35 +119,6 @@ onMounted(() => {
       hex.setTint(0x88ff88)
       this.time.delayedCall(200, () => hex.clearTint())
     }
-
-    // Отрисовка границы игрового поля
-    private drawHexagonBorder(
-      hexagons: { q: number; r: number }[],
-      mapRadius: number,
-      hexRadius: number,
-      center: { x: number; y: number },
-    ): void {
-      const graphics = this.add.graphics({ lineStyle: { width: 3, color: 0xff0000 } })
-
-      // Выбор крайних гексов
-      const edgeHexes = hexagons.filter(({ q, r }) => {
-        const s = -q - r
-        return Math.max(Math.abs(q), Math.abs(r), Math.abs(s)) === mapRadius
-      })
-
-      // Преобразование и сортировка точек
-      const points = edgeHexes
-        .map(({ q, r }) => this.axialToPixel(q, r, hexRadius, center))
-        .sort((a, b) => {
-          const angleA = Math.atan2(a.y - center.y, a.x - center.x)
-          const angleB = Math.atan2(b.y - center.y, b.x - center.x)
-          return angleA - angleB
-        })
-
-      // Замыкание контура
-      points.push(points[0])
-      graphics.strokePoints(points)
-    }
   }
 
   const config: Phaser.Types.Core.GameConfig = {
@@ -141,7 +130,7 @@ onMounted(() => {
     physics: {
       default: 'arcade',
       arcade: {
-        debug: false, // Можно отключить после отладки
+        debug: true, // Можно отключить после отладки
         gravity: { x: 0, y: 0 },
       },
     },
