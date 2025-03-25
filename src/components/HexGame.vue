@@ -53,10 +53,10 @@ onMounted(() => {
           // Добавляем физическое тело
           this.physics.add.existing(hex, true)
           const body = hex.body as Phaser.Physics.Arcade.Body
-          body.setCircle(hexRadius * 0.85, hexWidth / 2 - hexRadius, hexHeight / 2 - hexRadius)
+          body.setCircle(hexRadius * 0.85)
 
           // Настройка интерактивности после создания тела
-          hex.setInteractive({ pixelPerfect: true })
+          hex.setInteractive({ pixelPerfect: true, useHandCursor: true })
 
           // Обработчик клика с защитой от NaN
           hex.on('pointerdown', () => {
