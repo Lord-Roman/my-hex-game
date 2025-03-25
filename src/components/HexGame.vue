@@ -29,45 +29,46 @@ onMounted(() => {
     }
 
     create() {
+      // Включаем физику для сцены
+      this.physics.world.enable(this)
+
       this.createHexGrid()
     }
 
     private createHexGrid(): void {
-      const hexRadius = 40 // Радиус шестиугольника (расстояние от центра до вершины)
-      const hexWidth = hexRadius * Math.sqrt(3) // Ширина шестиугольника
-      const hexHeight = hexRadius * 2 // Высота шестиугольника
+      const hexRadius = 40
+      const hexWidth = hexRadius * Math.sqrt(3)
+      const hexHeight = hexRadius * 2
 
       const cols = 8
       const rows = 6
-
       const offsetX = 50
       const offsetY = 50
 
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          // Правильное расположение без зазоров
           const x = col * hexWidth + ((row % 2) * hexWidth) / 2
-          const y = row * ((hexHeight * 3) / 4) // 3/4 высоты для смещения
+          const y = row * (hexHeight * 0.75)
 
           const hex = this.add
             .image(x + offsetX, y + offsetY, 'hex')
-            .setInteractive()
-            .setDisplaySize(hexWidth, hexHeight) // Важно: задаём точный размер
+            .setDisplaySize(hexWidth, hexHeight)
+            .setInteractive({ pixelPerfect: true }) // Включаем точное определение клика
             .setDataEnabled()
 
-          const hexData: HexData = {
-            value: 1,
-          }
+          // Важно: создаём тело ДО настройки обработчика кликов
+          this.physics.add.existing(hex, true) // true = статическое тело
 
-          Object.entries(hexData).forEach(([key, value]) => {
-            hex.data.set(key, value)
-          })
+          // Настраиваем область взаимодействия как полигон
+          const hexBody = hex.body as Phaser.Physics.Arcade.Body
+          hexBody.setCircle(hexRadius * 0.85, hexWidth / 2 - hexRadius, hexHeight / 2 - hexRadius)
 
+          // Обработчик клика
           hex.on('pointerdown', () => {
             const data = hex.data.getAll() as HexData
             grassCount.value += data.value
             hex.setTint(0x88ff88)
-            setTimeout(() => hex.clearTint(), 200)
+            this.time.delayedCall(200, () => hex.clearTint())
           })
         }
       }
@@ -83,7 +84,7 @@ onMounted(() => {
     physics: {
       default: 'arcade',
       arcade: {
-        debug: true,
+        debug: true, // Можно включить для отладки
         gravity: { x: 0, y: 0 },
       },
     },
