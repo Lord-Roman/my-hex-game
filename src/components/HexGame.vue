@@ -4,16 +4,11 @@
     <div class="resources-counter">Трава: {{ grassCount }}</div>
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import Phaser from 'phaser'
 
-interface HexData {
-  value: number
-}
-
-const grassCount = ref<number>(0)
+const grassCount = ref(0)
 
 onMounted(() => {
   class MainScene extends Phaser.Scene {
@@ -29,9 +24,6 @@ onMounted(() => {
     }
 
     create() {
-      // Включаем физику для сцены
-      this.physics.world.enable(this)
-
       this.createHexGrid()
     }
 
@@ -53,20 +45,23 @@ onMounted(() => {
           const hex = this.add
             .image(x + offsetX, y + offsetY, 'hex')
             .setDisplaySize(hexWidth, hexHeight)
-            .setInteractive({ pixelPerfect: true }) // Включаем точное определение клика
             .setDataEnabled()
 
-          // Важно: создаём тело ДО настройки обработчика кликов
-          this.physics.add.existing(hex, true) // true = статическое тело
+          // Инициализация данных
+          hex.data.set('value', 1)
 
-          // Настраиваем область взаимодействия как полигон
-          const hexBody = hex.body as Phaser.Physics.Arcade.Body
-          hexBody.setCircle(hexRadius * 0.85, hexWidth / 2 - hexRadius, hexHeight / 2 - hexRadius)
+          // Добавляем физическое тело
+          this.physics.add.existing(hex, true)
+          const body = hex.body as Phaser.Physics.Arcade.Body
+          body.setCircle(hexRadius * 0.85, hexWidth / 2 - hexRadius, hexHeight / 2 - hexRadius)
 
-          // Обработчик клика
+          // Настройка интерактивности после создания тела
+          hex.setInteractive({ pixelPerfect: true })
+
+          // Обработчик клика с защитой от NaN
           hex.on('pointerdown', () => {
-            const data = hex.data.getAll() as HexData
-            grassCount.value += data.value
+            const value = Number(hex.data.get('value')) || 1
+            grassCount.value += value
             hex.setTint(0x88ff88)
             this.time.delayedCall(200, () => hex.clearTint())
           })
@@ -84,7 +79,7 @@ onMounted(() => {
     physics: {
       default: 'arcade',
       arcade: {
-        debug: true, // Можно включить для отладки
+        debug: true, // Можно отключить после отладки
         gravity: { x: 0, y: 0 },
       },
     },
