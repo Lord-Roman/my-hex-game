@@ -28,45 +28,107 @@ onMounted(() => {
     }
 
     private createHexGrid(): void {
+      // Основные настройки
       const hexRadius = 40
-      const hexWidth = hexRadius * Math.sqrt(3)
-      const hexHeight = hexRadius * 2
+      const mapRadius = 3
+      const center = { x: 400, y: 300 }
 
-      const cols = 8
-      const rows = 6
-      const offsetX = 50
-      const offsetY = 50
+      // 1. Генерация координат
+      const hexagons = this.generateHexagonCoordinates(mapRadius)
 
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const x = col * hexWidth + ((row % 2) * hexWidth) / 2
-          const y = row * (hexHeight * 0.75)
+      // 2. Создание гексов
+      hexagons.forEach(({ q, r }) => {
+        const position = this.axialToPixel(q, r, hexRadius, center)
+        this.createHex(position.x, position.y, hexRadius)
+      })
 
-          const hex = this.add
-            .image(x + offsetX, y + offsetY, 'hex')
-            .setDisplaySize(hexWidth, hexHeight)
-            .setDataEnabled()
+      // 3. Отрисовка границ
+      this.drawHexagonBorder(hexagons, mapRadius, hexRadius, center)
+    }
 
-          // Инициализация данных
-          hex.data.set('value', 1)
+    // Генерация координат в осевой системе
+    private generateHexagonCoordinates(mapRadius: number): { q: number; r: number }[] {
+      const hexagons: { q: number; r: number }[] = []
 
-          // Добавляем физическое тело
-          this.physics.add.existing(hex, true)
-          const body = hex.body as Phaser.Physics.Arcade.Body
-          body.setCircle(hexRadius * 0.85)
-
-          // Настройка интерактивности после создания тела
-          hex.setInteractive({ pixelPerfect: true, useHandCursor: true })
-
-          // Обработчик клика с защитой от NaN
-          hex.on('pointerdown', () => {
-            const value = Number(hex.data.get('value')) || 1
-            grassCount.value += value
-            hex.setTint(0x88ff88)
-            this.time.delayedCall(200, () => hex.clearTint())
-          })
+      for (let q = -mapRadius; q <= mapRadius; q++) {
+        const r1 = Math.max(-mapRadius, -q - mapRadius)
+        const r2 = Math.min(mapRadius, -q + mapRadius)
+        for (let r = r1; r <= r2; r++) {
+          hexagons.push({ q, r })
         }
       }
+      return hexagons
+    }
+
+    // Преобразование координат
+    private axialToPixel(
+      q: number,
+      r: number,
+      hexRadius: number,
+      center: { x: number; y: number },
+    ): { x: number; y: number } {
+      const x = hexRadius * Math.sqrt(3) * (q + r / 2) + center.x
+      const y = hexRadius * (3 / 2) * r + center.y
+      return { x, y }
+    }
+
+    // Создание одного гекса
+    private createHex(x: number, y: number, hexRadius: number): void {
+      const hex = this.add
+        .image(x, y, 'hex')
+        .setDisplaySize(hexRadius * 2, hexRadius * 2)
+        .setDataEnabled()
+
+      // Настройка физики
+      this.physics.add.existing(hex, true)
+      const body = hex.body as Phaser.Physics.Arcade.Body
+      body.setCircle(hexRadius * 0.85)
+
+      // Настройка интерактивности
+      hex.setInteractive({ pixelPerfect: true })
+      hex.data.set('value', 1)
+
+      // Обработчик клика
+      hex.on('pointerdown', () => {
+        this.handleHexClick(hex)
+      })
+    }
+
+    // Обработка клика на гексе
+    private handleHexClick(hex: Phaser.GameObjects.Image): void {
+      const value = hex.data.get('value') as number
+      grassCount.value += value
+      hex.setTint(0x88ff88)
+      this.time.delayedCall(200, () => hex.clearTint())
+    }
+
+    // Отрисовка границы игрового поля
+    private drawHexagonBorder(
+      hexagons: { q: number; r: number }[],
+      mapRadius: number,
+      hexRadius: number,
+      center: { x: number; y: number },
+    ): void {
+      const graphics = this.add.graphics({ lineStyle: { width: 3, color: 0xff0000 } })
+
+      // Выбор крайних гексов
+      const edgeHexes = hexagons.filter(({ q, r }) => {
+        const s = -q - r
+        return Math.max(Math.abs(q), Math.abs(r), Math.abs(s)) === mapRadius
+      })
+
+      // Преобразование и сортировка точек
+      const points = edgeHexes
+        .map(({ q, r }) => this.axialToPixel(q, r, hexRadius, center))
+        .sort((a, b) => {
+          const angleA = Math.atan2(a.y - center.y, a.x - center.x)
+          const angleB = Math.atan2(b.y - center.y, b.x - center.x)
+          return angleA - angleB
+        })
+
+      // Замыкание контура
+      points.push(points[0])
+      graphics.strokePoints(points)
     }
   }
 
@@ -79,7 +141,7 @@ onMounted(() => {
     physics: {
       default: 'arcade',
       arcade: {
-        debug: true, // Можно отключить после отладки
+        debug: false, // Можно отключить после отладки
         gravity: { x: 0, y: 0 },
       },
     },
