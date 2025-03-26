@@ -12,6 +12,12 @@ const grassCount = ref(0)
 
 onMounted(() => {
   class MainScene extends Phaser.Scene {
+    private cameraControls!: Phaser.Events.EventEmitter
+    private isDragging = false
+    private startDragX = 0
+    private startDragY = 0
+    private mapRadius = 10
+    private HEX_RADIUS = 40
     constructor() {
       super({ key: 'MainScene' })
     }
@@ -24,13 +30,82 @@ onMounted(() => {
     }
 
     create() {
+      this.createSkyGradient()
       this.createHexGrid()
+      this.setupCameraControls()
+    }
+
+    private createSkyGradient(): void {
+      const gradient = this.add.graphics()
+      const skyColor = Phaser.Display.Color.HexStringToColor('#87CEEB') // Цвет неба
+      const horizonColor = Phaser.Display.Color.HexStringToColor('#E0F6FF') // Цвет горизонта
+
+      gradient.fillGradientStyle(
+        skyColor.color, // Верхний левый
+        skyColor.color, // Верхний правый
+        horizonColor.color, // Нижний левый
+        horizonColor.color, // Нижний правый
+        1, // Альфа
+      )
+
+      gradient.fillRect(0, 0, 800, 600) // Размеры canvas
+      gradient.setScrollFactor(0) // Фиксируем фон
+    }
+
+    private setupCameraControls(): void {
+      const camera = this.cameras.main
+
+      // 1. Устанавливаем границы камеры
+      const bounds = this.calculateCameraBounds()
+      camera.setBounds(bounds.x, bounds.y, bounds.width, bounds.height)
+
+      // 2. Включение зума колесиком мыши
+      camera.setZoom(1)
+      this.input.on('wheel', (pointer: any, gameObjects: any[], deltaX: number, deltaY: number) => {
+        const zoomDelta = deltaY > 0 ? 0.1 : -0.1
+        const newZoom = Phaser.Math.Clamp(camera.zoom + zoomDelta, 0.5, 2)
+        camera.setZoom(newZoom)
+      })
+
+      // 3. Перемещение камеры при зажатой ЛКМ
+      this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (pointer.leftButtonDown()) {
+          this.startDragX = pointer.x + camera.scrollX
+          this.startDragY = pointer.y + camera.scrollY
+        }
+      })
+
+      this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+        if (pointer.leftButtonDown()) {
+          this.isDragging = true
+          camera.scrollX = this.startDragX - pointer.x
+          camera.scrollY = this.startDragY - pointer.y
+        }
+      })
+
+      this.input.on('pointerup', () => {
+        this.isDragging = false
+      })
+    }
+
+    private calculateCameraBounds(): { x: number; y: number; width: number; height: number } {
+      // Рассчитываем размеры мира на основе mapRadius
+      const hexSize = this.HEX_RADIUS * 2
+      const width = hexSize * this.mapRadius * 3
+      const height = hexSize * this.mapRadius * 2.5
+
+      return {
+        x: -width / 2,
+        y: -height / 2,
+        width: width,
+        height: height,
+      }
     }
 
     private createHexGrid(): void {
       // Основные настройки
-      const hexRadius = 40
-      const mapRadius = 3
+      const hexRadius = this.HEX_RADIUS
+      const mapRadius = this.mapRadius
       const center = { x: 400, y: 300 }
 
       // 1. Генерация координат
@@ -58,7 +133,6 @@ onMounted(() => {
     }
 
     // Преобразование координат
-    // В классе MainScene:
     private axialToPixel(
       q: number,
       r: number,
@@ -107,7 +181,8 @@ onMounted(() => {
       })
       hex.data.set('value', 1)
 
-      hex.on('pointerdown', () => {
+      hex.on('pointerup', () => {
+        if (this.isDragging) return
         this.handleHexClick(hex)
       })
     }
@@ -126,12 +201,18 @@ onMounted(() => {
     parent: 'game-canvas',
     width: 800,
     height: 600,
-    backgroundColor: '#2d2d2d',
+    backgroundColor: '#000000',
     physics: {
       default: 'arcade',
       arcade: {
-        debug: true, // Можно отключить после отладки
+        debug: false,
         gravity: { x: 0, y: 0 },
+      },
+    },
+    input: {
+      mouse: {
+        target: document.getElementById('game-canvas') as HTMLElement,
+        preventDefaultWheel: false,
       },
     },
     scene: [MainScene],
