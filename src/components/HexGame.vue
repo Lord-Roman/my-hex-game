@@ -61,11 +61,14 @@ onMounted(() => {
 
       // 2. Включение зума колесиком мыши
       camera.setZoom(1)
-      this.input.on('wheel', (pointer: any, gameObjects: any[], deltaX: number, deltaY: number) => {
-        const zoomDelta = deltaY > 0 ? 0.1 : -0.1
-        const newZoom = Phaser.Math.Clamp(camera.zoom + zoomDelta, 0.5, 2)
-        camera.setZoom(newZoom)
-      })
+      this.input.on(
+        'wheel',
+        (pointer: unknown, gameObjects: unknown[], deltaX: number, deltaY: number) => {
+          const zoomDelta = deltaY > 0 ? -0.2 : 0.2
+          const newZoom = Phaser.Math.Clamp(camera.zoom + zoomDelta, 0.5, 2)
+          camera.zoomTo(newZoom, 100) // Плавный зум за 100ms
+        },
+      )
 
       // 3. Перемещение камеры при зажатой ЛКМ
       this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -104,17 +107,32 @@ onMounted(() => {
 
     private createHexGrid(): void {
       // Основные настройки
-      const hexRadius = this.HEX_RADIUS
-      const mapRadius = this.mapRadius
       const center = { x: 400, y: 300 }
 
       // 1. Генерация координат
-      const hexagons = this.generateHexagonCoordinates(mapRadius)
+      const hexagons = this.generateHexagonCoordinates(this.mapRadius)
 
       // 2. Создание гексов
+      let hexCounter = 1
+
       hexagons.forEach(({ q, r }) => {
-        const position = this.axialToPixel(q, r, hexRadius, center)
-        this.createHex(position.x, position.y, hexRadius)
+        const position = this.axialToPixel(q, r, this.HEX_RADIUS, center)
+        const hex = this.createHex(position.x, position.y, this.HEX_RADIUS)
+
+        // Добавляем текст с номером
+        this.add
+          .text(position.x, position.y, `${hexCounter}`, {
+            fontFamily: 'Arial',
+            fontSize: '20px',
+            color: '#FFFFFF',
+            stroke: '#000000',
+            strokeThickness: 3,
+            align: 'center',
+          })
+          .setOrigin(0.5) // Центрирование текста
+          .setScrollFactor(1) // Движется вместе с камерой
+
+        hexCounter++
       })
     }
 
