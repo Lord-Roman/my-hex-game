@@ -1,7 +1,7 @@
 <template>
-  <HexGame />
+  <MainGame />
 </template>
 
 <script setup lang="ts">
-import HexGame from './components/HexGame.vue'
+import MainGame from './components/MainGame.vue'
 </script>
